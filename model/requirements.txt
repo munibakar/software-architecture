@@ -1,0 +1,15 @@
+flask>=2.0.0
+flask-cors>=4.0.0
+requests==2.31.0
+numpy>=1.24.0
+torch>=2.0.0
+transformers>=4.31.0
+pyannote.audio>=3.1.0
+huggingface_hub==0.17.3
+python-dotenv>=1.0.0
+pydub==0.25.1
+scipy==1.11.2
+librosa==0.10.1
+ffmpeg-python>=0.2.0
+# Optional: GPU dependencies
+# torch-cuda if using NVIDIA GPU 

@@ -157,6 +157,14 @@ def diarize_audio(audio_path, job_id):
                 "pyannote/speaker-diarization-3.1",
                 use_auth_token=token
             )
+            
+            # Modelin None dönüp dönmediğini kontrol et
+            if diarization_pipeline is None:
+                error_msg = f"[{job_id}] Pyannote.audio Pipeline.from_pretrained modeli yükleyemedi ve None döndürdü. Token: {'Token mevcut' if token else 'Token YOK'}, Model: pyannote/speaker-diarization-3.1"
+                print(error_msg)
+                logger.error(error_msg)
+                raise ValueError("Pyannote.audio Pipeline.from_pretrained modeli yükleyemedi ve None döndürdü. Lütfen Hugging Face model erişiminizi ve ağ bağlantınızı kontrol edin.")
+
             print(f"[{job_id}] Pyannote.audio modeli başarıyla yüklendi")
             
             if torch.cuda.is_available():
@@ -368,15 +376,24 @@ def analyze_meeting(aligned_transcript):
         full_text = " ".join([segment["text"] for segment in aligned_transcript])
         print(f"Toplam metin uzunluğu: {len(full_text)} karakter")
         
-        # Basit bir özet (gerçek uygulamada NLP modelleri kullanılabilir)
-        summary = "Toplantı transkripsiyon analizi tamamlandı."
+        # Toplantı konusu tespiti - segmentleri de geçirerek çağır
+        meeting_topic = detect_meeting_topic(full_text, aligned_transcript)
+        print(f"Tespit edilen toplantı konusu: {meeting_topic}")
+        
+        # Duygu analizi
+        meeting_sentiment = analyze_sentiment(aligned_transcript)
+        print(f"Toplantı duygu analizi: {meeting_sentiment['overall']}")
+        
+        # Özet oluştur
+        summary = f"{meeting_topic} Toplantı genel olarak {meeting_sentiment['description']} bir şekilde geçmiştir."
         
         print(f"Analiz tamamlandı, özet: {summary}")
         return {
             "summary": summary,
+            "topic": meeting_topic,
             "participation": participation,
             "speaker_stats": speakers,
-            "sentiment": "neutral"  # Duygu analizi eklenmeli
+            "sentiment": meeting_sentiment
         }
     
     except Exception as e:
@@ -386,9 +403,271 @@ def analyze_meeting(aligned_transcript):
         logger.error(f"Analiz hatası: {str(e)}")
         return {
             "summary": "Analiz sırasında hata oluştu.",
+            "topic": "Toplantı konusu belirlenemedi",
             "participation": {},
-            "sentiment": "unknown"
+            "sentiment": {"overall": "unknown", "description": "belirsiz"}
         }
+
+# Toplantı konusu tespiti fonksiyonu
+def detect_meeting_topic(text, aligned_transcript=None):
+    try:
+        print("Toplantı konusu tespiti başlatılıyor...")
+        
+        # Transformers modelini import et
+        try:
+            print("Transformers modülünü import ediliyor...")
+            from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+            print("Transformers import edildi")
+        except Exception as e:
+            print(f"Transformers import hatası: {str(e)}")
+            raise Exception(f"Transformers import hatası: {str(e)}")
+        
+        # Toplantı içeriğini hazırla
+        if aligned_transcript and len(aligned_transcript) > 0:
+            print("Transkripsiyon segmentleri kullanılarak içerik hazırlanıyor...")
+            
+            # Toplantının başlangıç kısmına daha fazla ağırlık ver (ilk %20)
+            intro_ratio = 0.2
+            intro_segments = aligned_transcript[:int(len(aligned_transcript) * intro_ratio)]
+            intro_text = " ".join([segment["text"] for segment in intro_segments])
+            
+            # Toplantının sonuç kısmına daha fazla ağırlık ver (son %20)
+            outro_ratio = 0.2
+            outro_segments = aligned_transcript[-int(len(aligned_transcript) * outro_ratio):]
+            outro_text = " ".join([segment["text"] for segment in outro_segments])
+            
+            # Tüm metni de ekle
+            full_text = " ".join([segment["text"] for segment in aligned_transcript])
+            
+            # Başlangıç ve sonuç metinlerini özellikle vurgula
+            prepared_text = f"Toplantı özeti: {intro_text} {full_text} Sonuç: {outro_text}"
+            
+        else:
+            # Eğer segment bilgisi yoksa direkt metni kullan
+            prepared_text = text
+        
+        # Metni kısaltmamız gerekebilir (model genellikle token limitine sahip)
+        max_length = min(1024, len(prepared_text.split()))
+        truncated_text = " ".join(prepared_text.split()[:max_length])
+        print(f"Konu tespiti için metin hazırlandı, uzunluk: {len(truncated_text.split())} kelime")
+        
+        # GPU kontrolü
+        import torch
+        device = 0 if torch.cuda.is_available() else -1
+        print(f"Cihaz: {device}, CUDA kullanılabilir: {torch.cuda.is_available()}")
+        
+        # Metin özetleme modelini doğrudan yükle (daha fazla kontrol için)
+        print("BART özetleme modeli yükleniyor...")
+        model_name = "facebook/bart-large-cnn"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+        
+        # Model GPU'ya taşı
+        if torch.cuda.is_available():
+            model = model.to("cuda")
+            
+        print("BART modeli başarıyla yüklendi")
+        
+        # Modele metni ilet
+        print("Toplantı konusu özeti oluşturuluyor...")
+        inputs = tokenizer(truncated_text, return_tensors="pt", max_length=1024, truncation=True)
+        
+        # GPU'ya taşı
+        if torch.cuda.is_available():
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
+            
+        # Özetleme için optimize edilmiş parametreler
+        summary_ids = model.generate(
+            inputs["input_ids"],
+            num_beams=4,            # Beam search için kullanılacak beam sayısı
+            min_length=15,          # Minimum özet uzunluğu
+            max_length=60,          # Maksimum özet uzunluğu
+            length_penalty=2.0,     # Daha uzun özetleri teşvik et
+            early_stopping=True,    # Tüm beamler EOS'a ulaştığında durdur
+            no_repeat_ngram_size=3, # Kelime tekrarını önle
+            do_sample=False         # Belirleyici çıktı için
+        )
+        
+        # Tokenlardan metne çevir
+        topic = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        
+        # Sonucu biçimlendir
+        topic = topic.strip()
+        
+        # "Toplantı" kelimesini başa ekle (eğer yoksa)
+        if not topic.lower().startswith("toplantı"):
+            if not topic.endswith("."):
+                topic = topic + "."
+            topic = f"Toplantı {topic}"
+        
+        print(f"Tespit edilen toplantı konusu: {topic}")
+        
+        return topic
+    
+    except Exception as e:
+        print(f"Konu tespiti hatası: {str(e)}")
+        import traceback
+        print(f"Konu tespiti hata detayları:\n{traceback.format_exc()}")
+        
+        # Hata durumunda basit bir kelime sıklığı analizi yap (yedek yöntem)
+        try:
+            print("Basit kelime sıklığı analizi yapılıyor (yedek yöntem)...")
+            stopwords = ["ve", "veya", "ile", "bu", "bir", "için", "gibi", "ben", "sen", "o", "biz", "siz", "onlar"]
+            words = text.lower().split()
+            filtered_words = [word for word in words if word not in stopwords and len(word) > 3]
+            
+            # Kelime frekanslarını hesapla
+            word_freq = {}
+            for word in filtered_words:
+                if word in word_freq:
+                    word_freq[word] += 1
+                else:
+                    word_freq[word] = 1
+            
+            # En sık kullanılan kelimeleri bul
+            sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+            top_words = sorted_words[:5] if len(sorted_words) >= 5 else sorted_words
+            
+            # İlişkili kelimeleri birleştirerek konu tahmin et
+            if len(top_words) > 0:
+                topic_keywords = [word for word, _ in top_words]
+                topic = ", ".join(topic_keywords[:3])
+                return f"Toplantı şu konuları içeriyor: {topic}."
+            else:
+                return "Toplantı konusu belirlenemedi."
+        except:
+            return "Toplantı konusu belirlenemedi."
+
+# Duygu analizi fonksiyonu
+def analyze_sentiment(transcript):
+    try:
+        print("Duygu analizi başlatılıyor...")
+        
+        # Tüm metni birleştir
+        all_text = " ".join([segment["text"] for segment in transcript])
+        
+        # Modeli import et
+        try:
+            print("Transformers modülünü import ediliyor...")
+            from transformers import pipeline
+            print("Transformers import edildi")
+        except Exception as e:
+            print(f"Transformers import hatası: {str(e)}")
+            raise Exception(f"Transformers import hatası: {str(e)}")
+        
+        # GPU kontrolü
+        import torch
+        device = 0 if torch.cuda.is_available() else -1
+        print(f"Cihaz: {device}, CUDA kullanılabilir: {torch.cuda.is_available()}")
+        
+        # Duygu analizi modeli
+        print("Duygu analizi modeli yükleniyor...")
+        sentiment_analyzer = pipeline(
+            "sentiment-analysis", 
+            model="distilbert-base-uncased-finetuned-sst-2-english", 
+            device=device
+        )
+        print("Duygu analizi modeli başarıyla yüklendi")
+        
+        # Metni uygun parçalara böl (model genellikle token limitine sahip)
+        chunk_size = 500  # distilbert için yaklaşık 500 kelimelik parçalar uygun
+        text_chunks = []
+        words = all_text.split()
+        
+        for i in range(0, len(words), chunk_size):
+            chunk = " ".join(words[i:i+chunk_size])
+            text_chunks.append(chunk)
+        
+        print(f"Metin {len(text_chunks)} parçaya bölündü")
+        
+        # Her parça için duygu analizi yap
+        results = []
+        for chunk in text_chunks:
+            result = sentiment_analyzer(chunk)
+            results.append(result[0])
+        
+        # Sonuçları değerlendir
+        positive_count = sum(1 for r in results if r['label'] == 'POSITIVE')
+        total_chunks = len(results)
+        positive_ratio = positive_count / total_chunks if total_chunks > 0 else 0
+        
+        # Genel duygu durumunu belirle
+        if positive_ratio > 0.6:
+            sentiment = "positive"
+            description = "olumlu ve yapıcı"
+        elif positive_ratio < 0.4:
+            sentiment = "negative"
+            description = "gergin ve problemli"
+        else:
+            sentiment = "neutral"
+            description = "nötr"
+        
+        print(f"Duygu analizi tamamlandı: {sentiment} ({positive_ratio:.2f})")
+        
+        return {
+            "overall": sentiment,
+            "description": description,
+            "score": positive_ratio
+        }
+    
+    except Exception as e:
+        print(f"Duygu analizi hatası: {str(e)}")
+        import traceback
+        print(f"Duygu analizi hata detayları:\n{traceback.format_exc()}")
+        
+        # Hata durumunda basit bir sözlük temelli duygu analizi yap
+        try:
+            print("Basit sözlük temelli duygu analizi yapılıyor (yedek yöntem)...")
+            
+            # Duygu belirten kelimeleri tanımla
+            positive_words = ["teşekkür", "harika", "mükemmel", "iyi", "güzel", "başarı", "başarılı", "mutlu", 
+                            "sevindirici", "olumlu", "hayal", "umut", "heyecan", "destekli", "eğlenceli"]
+            
+            negative_words = ["maalesef", "kötü", "sorun", "problem", "hata", "yanlış", "olumsuz", "başarısız", 
+                            "üzgün", "kaygı", "endişe", "korku", "öfke", "sinir", "gergin", "stres"]
+            
+            # Duygu puanları
+            total_score = 0
+            word_count = 0
+            
+            # Her segment için duygu analizi yap
+            for segment in transcript:
+                text = segment["text"].lower()
+                words = text.split()
+                
+                for word in words:
+                    word_count += 1
+                    if word in positive_words:
+                        total_score += 1
+                    elif word in negative_words:
+                        total_score -= 1
+            
+            # Ortalama duygu skoru
+            avg_score = total_score / word_count if word_count > 0 else 0
+            
+            # Duygu durumu belirleme
+            if avg_score > 0.05:
+                sentiment = "positive"
+                description = "olumlu ve yapıcı"
+            elif avg_score < -0.05:
+                sentiment = "negative"
+                description = "gergin ve problemli"
+            else:
+                sentiment = "neutral"
+                description = "nötr"
+            
+            return {
+                "overall": sentiment,
+                "description": description,
+                "score": avg_score
+            }
+        except Exception as e:
+            print(f"Basit duygu analizi de başarısız oldu: {str(e)}")
+            return {"overall": "unknown", "description": "belirsiz", "score": 0}
+        
+    except Exception as e:
+        print(f"Duygu analizi hatası: {str(e)}")
+        return {"overall": "unknown", "description": "belirsiz", "score": 0}
 
 # İşleme iş parçacığı
 def process_job(audio_path, job_id):

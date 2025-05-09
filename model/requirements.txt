@@ -11,5 +11,8 @@ pydub==0.25.1
 scipy==1.11.2
 librosa==0.10.1
 ffmpeg-python>=0.2.0
+sentencepiece>=0.1.99  # BART model için gerekli
+sacremoses>=0.0.53     # BART tokenizer için gerekli
+protobuf>=3.20.0       # Model serileştirme için gerekli
 # Optional: GPU dependencies
 # torch-cuda if using NVIDIA GPU 

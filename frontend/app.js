@@ -447,6 +447,29 @@ function displayAnalysis(analysis) {
     
     // Katılım grafiği
     createParticipationChart(analysis.participation);
+    
+    // Toplantı konusu
+    if (analysis.topic) {
+        document.getElementById('meetingTopic').textContent = analysis.topic;
+    }
+    
+    // Duygu analizi
+    if (analysis.sentiment && analysis.sentiment.overall) {
+        const sentimentEl = document.getElementById('meetingSentiment');
+        let sentimentClass = 'text-secondary';
+        let sentimentIcon = '<i class="bi bi-emoji-neutral"></i>';
+        
+        if (analysis.sentiment.overall === 'positive') {
+            sentimentClass = 'text-success';
+            sentimentIcon = '<i class="bi bi-emoji-smile"></i>';
+        } else if (analysis.sentiment.overall === 'negative') {
+            sentimentClass = 'text-danger';
+            sentimentIcon = '<i class="bi bi-emoji-frown"></i>';
+        }
+        
+        sentimentEl.className = sentimentClass;
+        sentimentEl.innerHTML = `${sentimentIcon} ${analysis.sentiment.description}`;
+    }
 }
 
 // Katılım grafiği oluşturma

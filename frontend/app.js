@@ -57,7 +57,7 @@ async function handleFormSubmit(e) {
     document.getElementById('uploadBtn').disabled = true;
     document.getElementById('uploadProgress').classList.remove('d-none');
     document.getElementById('processingCard').classList.remove('d-none');
-    addStatusMessage('info', 'Video yükleme hazırlanıyor...');
+    addStatusMessage('info', 'Preparing video upload...');
 
     try {
         // Video yüklemeyi başlat
@@ -82,8 +82,8 @@ async function handleFormSubmit(e) {
         currentVideoPath = uploadResult.videoPath;
         currentAudioPath = uploadResult.audioPath;
         
-        addStatusMessage('success', 'Video başarıyla yüklendi');
-        addStatusMessage('info', 'Ses dosyası hazırlanıyor...');
+        addStatusMessage('success', 'Video uploaded successfully');
+        addStatusMessage('info', 'Preparing audio file...');
         
         // Video oynatıcıyı göster
         displayVideo(API_BASE_URL + currentVideoPath);
@@ -104,7 +104,7 @@ async function handleFormSubmit(e) {
                 const processResult = await processResponse.json();
                 currentJobId = processResult.jobId;
                 
-                addStatusMessage('info', 'Model işlemesi başlatıldı, bu işlem birkaç dakika sürebilir...');
+                addStatusMessage('info', 'Model processing has started, this may take a few minutes...');
                 
                 // Düzenli sonuç kontrolü başlat
                 pollProcessingResult(currentJobId);
@@ -138,7 +138,7 @@ function handleProcessingUpdate(data) {
             addStatusMessage('info', data.message);
             break;
         case 'completed':
-            addStatusMessage('success', 'İşlem tamamlandı!');
+            addStatusMessage('success', 'The transaction is complete!');
             // Sonuçları göster
             if (currentJobId) {
                 fetchAndDisplayResults(currentJobId);
@@ -195,7 +195,7 @@ function pollProcessingResult(jobId) {
             
             if (data.status === 'completed') {
                 clearInterval(pollInterval);
-                addStatusMessage('success', 'İşlem tamamlandı!');
+                addStatusMessage('success', 'The transaction is complete!');
                 fetchAndDisplayResults(jobId);
             } else if (data.status === 'error') {
                 clearInterval(pollInterval);
@@ -277,7 +277,7 @@ function displayTranscription(alignedTranscript, fullTranscription) {
         html += `
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0">Tam Transkripsiyon Metni</h5>
+                    <h5 class="mb-0">Full Transcription Text</h5>
                 </div>
                 <div class="card-body">
                     <div class="full-transcript">
@@ -300,7 +300,7 @@ function displayTranscription(alignedTranscript, fullTranscription) {
             <div class="card mb-4">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Konuşmacı Bazlı Transkripsiyon</h5>
+                        <h5 class="mb-0">Speaker Based Transcription</h5>
                         <div class="speaker-filter btn-group btn-group-sm" role="group">
                             <button type="button" class="btn btn-outline-primary active" data-speaker="all">Tümü (${sortedTranscript.length})</button>
                             ${speakers.map(speaker => {
@@ -446,25 +446,8 @@ function displayAnalysis(analysis) {
     let chatContext = '';
     if (window.chatComponent) {
         const chatHistory = window.chatComponent.getChatHistory();
-        if (chatHistory.length > 0) {
-            chatContext = '\n\nSohbet Geçmişinden Önemli Noktalar:\n';
-            chatHistory.forEach(msg => {
-                if (msg.role === 'user') {
-                    chatContext += `- Kullanıcı: ${msg.content}\n`;
-                } else {
-                    chatContext += `- AI: ${msg.content}\n`;
-                }
-            });
-        }
     }
 
-    // Özet
-    const summaryElement = document.getElementById('meetingSummary');
-    summaryElement.textContent = analysis.summary + chatContext;
-    
-    // Katılım grafiği
-    createParticipationChart(analysis.participation);
-    
     // Toplantı konusu
     if (analysis.topic) {
         document.getElementById('meetingTopic').textContent = analysis.topic;
@@ -487,6 +470,9 @@ function displayAnalysis(analysis) {
         sentimentEl.className = sentimentClass;
         sentimentEl.innerHTML = `${sentimentIcon} ${analysis.sentiment.description}`;
     }
+    
+    // Katılım grafiği
+    createParticipationChart(analysis.participation);
 }
 
 // Katılım grafiği oluşturma

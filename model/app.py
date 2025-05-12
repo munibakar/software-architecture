@@ -4,11 +4,31 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
 import os
+import torch
 from dotenv import load_dotenv
 
 # Modülleri import et
 from .api.routes import register_routes
 from .jobs.processor import results_cache
+
+# GPU kullanımını optimize etmek için ayarlar
+def configure_gpu():
+    if torch.cuda.is_available():
+        # GPU kullanımını optimize et
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = False
+        
+        # Bellek kullanımını optimize et
+        torch.cuda.empty_cache()
+        
+        # Veri tipi tutarlılığı için float32 kullan
+        torch.set_default_dtype(torch.float32)
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"GPU yapılandırıldı: {torch.cuda.get_device_name(0)}")
+        print(f"GPU yapılandırıldı: {torch.cuda.get_device_name(0)}")
+        return True
+    return False
 
 # Uygulama oluşturma
 app = Flask(__name__)
@@ -36,6 +56,13 @@ logger = logging.getLogger(__name__)
 
 # Çevre değişkenlerini yükle
 load_dotenv()
+
+# GPU yapılandırmasını çalıştır
+has_gpu = configure_gpu()
+if has_gpu:
+    logger.info("GPU kullanımı etkinleştirildi")
+else:
+    logger.info("GPU bulunamadı, CPU kullanılacak")
 
 # FFmpeg'i otomatik olarak yapılandır
 try:

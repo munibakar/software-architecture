@@ -30,9 +30,20 @@ def diarize_audio(audio_path, job_id):
             print(f"[{job_id}] Import hata detayları:\n{traceback.format_exc()}")
             raise Exception(f"Pyannote.audio import hatası: {str(e)}")
         
+        # GPU kullanımını kontrol et
+        use_gpu = torch.cuda.is_available()
+        # GPU kullanılıyorsa float32 kullan, float16 ile uyumsuzluk sorunları var
+        if use_gpu:
+            # PyTorch'un varsayılan veri tipini float32'ye ayarla
+            torch.set_default_dtype(torch.float32)
+            # Belleği temizle
+            torch.cuda.empty_cache()
+        
         # Modeli yükle
         try:
             print(f"[{job_id}] Pyannote.audio modeli yükleniyor...")
+            
+            # Modeli CPU'da yükle, sonra GPU'ya taşı
             diarization_pipeline = Pipeline.from_pretrained(
                 "pyannote/speaker-diarization-3.1",
                 use_auth_token=token
@@ -47,10 +58,16 @@ def diarize_audio(audio_path, job_id):
 
             print(f"[{job_id}] Pyannote.audio modeli başarıyla yüklendi")
             
-            if torch.cuda.is_available():
+            if use_gpu:
                 print(f"[{job_id}] Model GPU'ya taşınıyor...")
-                diarization_pipeline = diarization_pipeline.to(torch.device("cuda"))
-                print(f"[{job_id}] Model GPU'ya taşındı")
+                try:
+                    # Modeli GPU'ya taşı, float32 veri tipini kullanarak
+                    diarization_pipeline.to(torch.device("cuda"))
+                    print(f"[{job_id}] Model GPU'ya taşındı")
+                except Exception as e:
+                    print(f"[{job_id}] Model GPU'ya taşınırken hata: {str(e)}")
+                    print(f"[{job_id}] CPU kullanılacak")
+                    use_gpu = False
                 
         except Exception as e:
             print(f"[{job_id}] Pyannote.audio modeli yükleme hatası: {str(e)}")
@@ -60,6 +77,7 @@ def diarize_audio(audio_path, job_id):
         
         print(f"[{job_id}] Konuşmacı ayrıştırma işlemi başlıyor...")
         try:
+            # İşlemi gerçekleştir
             diarization = diarization_pipeline(audio_path)
             print(f"[{job_id}] Konuşmacı ayrıştırma başarıyla tamamlandı")
             
@@ -67,7 +85,23 @@ def diarize_audio(audio_path, job_id):
             print(f"[{job_id}] Konuşmacı ayrıştırma işlemi sırasında hata: {str(e)}")
             import traceback
             print(f"[{job_id}] Ayrıştırma hata detayları:\n{traceback.format_exc()}")
-            raise Exception(f"Konuşmacı ayrıştırma işlemi hatası: {str(e)}")
+            
+            # GPU hatası alındıysa CPU'ya geçiş yap
+            if use_gpu and "cuda" in str(e).lower():
+                print(f"[{job_id}] GPU hatası tespit edildi, CPU'ya geçiliyor...")
+                try:
+                    # Belleği temizle
+                    torch.cuda.empty_cache()
+                    # Modeli CPU'ya taşı
+                    diarization_pipeline.to(torch.device("cpu"))
+                    # İşlemi CPU'da tekrar dene
+                    diarization = diarization_pipeline(audio_path)
+                    print(f"[{job_id}] CPU ile konuşmacı ayrıştırma başarıyla tamamlandı")
+                except Exception as cpu_e:
+                    print(f"[{job_id}] CPU ile de işlem başarısız: {str(cpu_e)}")
+                    raise Exception(f"Konuşmacı ayrıştırma işlemi hatası (GPU ve CPU): {str(e)}")
+            else:
+                raise Exception(f"Konuşmacı ayrıştırma işlemi hatası: {str(e)}")
         
         # Sonuçları listele
         speakers = []

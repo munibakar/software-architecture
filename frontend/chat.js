@@ -18,8 +18,8 @@ class ChatComponent {
             </div>
             <div class="chat-messages"></div>
             <div class="chat-input">
-                <input type="text" placeholder="Mesajınızı yazın...">
-                <button class="send-btn">Gönder</button>
+                <input type="text" placeholder="Write your message...">
+                <button class="send-btn">Send</button>
             </div>
         `;
 
@@ -53,7 +53,7 @@ class ChatComponent {
         this.addMessageToChat('user', message);
 
         try {
-            // Call free AI service API (example using OpenAssistant)
+            // Call AI service API
             const response = await this.callAIService(message);
             
             // Add AI response to chat
@@ -84,13 +84,29 @@ class ChatComponent {
     }
 
     async callAIService(message) {
-        // Example using a free AI service API (you'll need to implement this)
-        // For now, returning a mock response
-        return new Promise(resolve => {
-            setTimeout(() => {
-                resolve("Bu bir örnek AI yanıtıdır. Gerçek implementasyonda bir AI servisi kullanılacaktır.");
-            }, 1000);
-        });
+        // Connect to our backend AI chat API
+        try {
+            const response = await fetch(`${API_BASE_URL || 'http://localhost:3000'}/api/ai-chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message,
+                    history: this.chatHistory.length > 4 ? this.chatHistory.slice(-4) : this.chatHistory // Send limited history
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server responded with status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.response;
+        } catch (error) {
+            console.error("AI chat API error:", error);
+            throw error;
+        }
     }
 
     // Get chat history for context in summarization

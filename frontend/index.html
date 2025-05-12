@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Toplantı Video Analiz Aracı</title>
+    <title>Meeting Video Analysis Tool</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="styles.css">
@@ -12,7 +12,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="#">
-                <i class="bi bi-camera-video"></i> Toplantı Video Analiz Aracı
+                <i class="bi bi-camera-video"></i> Meeting Video Analysis Tool
             </a>
         </div>
     </nav>
@@ -22,17 +22,17 @@
             <div class="col-md-6">
                 <div class="card mb-4">
                     <div class="card-header">
-                        <i class="bi bi-cloud-upload"></i> Video Yükleme
+                        <i class="bi bi-cloud-upload"></i> Video Upload
                     </div>
                     <div class="card-body">
                         <form id="uploadForm" enctype="multipart/form-data">
                             <div class="mb-3">
-                                <label for="videoFile" class="form-label">Toplantı videosu seçin</label>
+                                <label for="videoFile" class="form-label">Select meeting video</label>
                                 <input class="form-control" type="file" id="videoFile" accept="video/*" required>
-                                <div class="form-text">Desteklenen formatlar: MP4, AVI, MOV, MKV, WEBM</div>
+                                <div class="form-text">Supported formats: MP4, AVI, MOV, MKV, WEBM</div>
                             </div>
                             <button type="submit" class="btn btn-primary" id="uploadBtn">
-                                <i class="bi bi-upload"></i> Yükle ve İşle
+                                <i class="bi bi-upload"></i> Load and Process
                             </button>
                         </form>
                         
@@ -44,7 +44,7 @@
 
                 <div class="card mb-4 d-none" id="processingCard">
                     <div class="card-header">
-                        <i class="bi bi-gear-fill"></i> İşlem Durumu
+                        <i class="bi bi-gear-fill"></i> Status
                     </div>
                     <div class="card-body">
                         <div id="statusMessages" class="list-group mb-3">
@@ -52,7 +52,7 @@
                         </div>
                         <div class="text-center">
                             <div class="spinner-border text-primary" role="status" id="processingSpinner">
-                                <span class="visually-hidden">İşleniyor...</span>
+                                <span class="visually-hidden">Processing...</span>
                             </div>
                         </div>
                     </div>
@@ -62,12 +62,12 @@
             <div class="col-md-6">
                 <div class="card mb-4 d-none" id="videoPlayerCard">
                     <div class="card-header">
-                        <i class="bi bi-film"></i> Video Oynatıcı
+                        <i class="bi bi-film"></i> Video Player
                     </div>
                     <div class="card-body">
                         <video id="videoPlayer" class="video-js w-100" controls preload="auto">
                             <source src="" type="video/mp4">
-                            Tarayıcınız video etiketini desteklemiyor.
+                            Your browser does not support the video tag.
                         </video>
                     </div>
                 </div>
@@ -81,12 +81,12 @@
                         <ul class="nav nav-tabs card-header-tabs" id="resultsTabs" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="transcript-tab" data-bs-toggle="tab" data-bs-target="#transcript" type="button" role="tab">
-                                    <i class="bi bi-chat-text"></i> Transkripsiyon
+                                    <i class="bi bi-chat-text"></i> Transcription
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="analysis-tab" data-bs-toggle="tab" data-bs-target="#analysis" type="button" role="tab">
-                                    <i class="bi bi-bar-chart"></i> Analiz
+                                    <i class="bi bi-bar-chart"></i> Analysis
                                 </button>
                             </li>
                         </ul>
@@ -95,7 +95,7 @@
                         <div class="tab-content" id="resultsTabContent">
                             <div class="tab-pane fade show active" id="transcript" role="tabpanel">
                                 <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i> Konuşma metni yüklendiğinde burada görünecek.
+                                    <i class="bi bi-info-circle"></i> The transcript will appear here once it is loaded.
                                 </div>
                                 <div id="transcriptionContent"></div>
                             </div>
@@ -103,23 +103,16 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="card mb-3">
-                                            <div class="card-header">Toplantı Özeti</div>
-                                            <div class="card-body">
-                                                <p id="meetingSummary">Yükleniyor...</p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="card mb-3">
-                                            <div class="card-header">Toplantı Bilgileri</div>
+                                            <div class="card-header">Meeting Information</div>
                                             <div class="card-body">
                                                 <div class="mb-3">
-                                                    <h6><i class="bi bi-tag"></i> Toplantı Konusu</h6>
+                                                    <h6><i class="bi bi-tag"></i> Meeting Summary</h6>
                                                     <p id="meetingTopic">-</p>
                                                 </div>
                                                 <div>
-                                                    <h6><i class="bi bi-emoji-smile"></i> Toplantı Atmosferi</h6>
+                                                    <h6><i class="bi bi-emoji-smile"></i> Meeting Atmosphere</h6>
                                                     <p id="meetingSentiment" class="text-secondary">
-                                                        <i class="bi bi-emoji-neutral"></i> Yükleniyor...
+                                                        <i class="bi bi-emoji-neutral"></i> Loading...
                                                     </p>
                                                 </div>
                                             </div>
@@ -127,7 +120,7 @@
                                     </div>
                                     <div class="col-md-6">
                                         <div class="card mb-3">
-                                            <div class="card-header">Katılım Oranları</div>
+                                            <div class="card-header">Participation Rates</div>
                                             <div class="card-body">
                                                 <canvas id="participationChart"></canvas>
                                             </div>

@@ -60,13 +60,13 @@ def analyze_sentiment(transcript):
         # Genel duygu durumunu belirle
         if positive_ratio > 0.6:
             sentiment = "positive"
-            description = "olumlu ve yapıcı"
+            description = "positive and constructive"
         elif positive_ratio < 0.4:
             sentiment = "negative"
-            description = "gergin ve problemli"
+            description = "tense and problematic"
         else:
             sentiment = "neutral"
-            description = "nötr"
+            description = "neutral"
         
         print(f"Duygu analizi tamamlandı: {sentiment} ({positive_ratio:.2f})")
         
@@ -86,11 +86,11 @@ def analyze_sentiment(transcript):
             print("Basit sözlük temelli duygu analizi yapılıyor (yedek yöntem)...")
             
             # Duygu belirten kelimeleri tanımla
-            positive_words = ["teşekkür", "harika", "mükemmel", "iyi", "güzel", "başarı", "başarılı", "mutlu", 
-                            "sevindirici", "olumlu", "hayal", "umut", "heyecan", "destekli", "eğlenceli"]
+            positive_words = ["thank you", "great", "perfect", "good", "nice", "success", "successful", "happy", 
+                            "encouraging", "positive", "hope", "hopeful", "excited", "supportive", "fun"]
             
-            negative_words = ["maalesef", "kötü", "sorun", "problem", "hata", "yanlış", "olumsuz", "başarısız", 
-                            "üzgün", "kaygı", "endişe", "korku", "öfke", "sinir", "gergin", "stres"]
+            negative_words = ["unfortunately", "bad", "issue", "problem", "error", "wrong", "negative", "failed",
+                            "sad", "anxiety", "worry", "fear", "anger", "nerve", "tense", "stress"]
             
             # Duygu puanları
             total_score = 0
@@ -114,13 +114,13 @@ def analyze_sentiment(transcript):
             # Duygu durumu belirleme
             if avg_score > 0.05:
                 sentiment = "positive"
-                description = "olumlu ve yapıcı"
+                description = "positive and constructiveı"
             elif avg_score < -0.05:
                 sentiment = "negative"
-                description = "gergin ve problemli"
+                description = "tense and problematic"
             else:
                 sentiment = "neutral"
-                description = "nötr"
+                description = "neutral"
             
             return {
                 "overall": sentiment,

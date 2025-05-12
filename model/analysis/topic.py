@@ -75,8 +75,8 @@ def detect_meeting_topic(text, aligned_transcript=None):
         summary_ids = model.generate(
             inputs["input_ids"],
             num_beams=6,            # Beam search için kullanılacak beam sayısı artırıldı
-            min_length=75,          # Minimum özet uzunluğu artırıldı
-            max_length=200,         # Maximum özet uzunluğu artırıldı
+            min_length=150,          # Minimum özet uzunluğu artırıldı
+            max_length=400,         # Maximum özet uzunluğu artırıldı
             length_penalty=2.0,     # Daha uzun özetleri teşvik et
             early_stopping=True,    # Tüm beamler EOS'a ulaştığında durdur
             no_repeat_ngram_size=3, # Kelime tekrarını önle

@@ -14,5 +14,6 @@ ffmpeg-python>=0.2.0
 sentencepiece>=0.1.99  # BART model için gerekli
 sacremoses>=0.0.53     # BART tokenizer için gerekli
 protobuf>=3.20.0       # Model serileştirme için gerekli
-# Optional: GPU dependencies
-# torch-cuda if using NVIDIA GPU 
+# GPU dependencies
+# NOT: PyTorch CUDA için pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 komutunu kullanın
+accelerate>=0.21.0  # Hugging Face modelleri için GPU hızlandırma 

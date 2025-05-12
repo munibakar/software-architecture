@@ -7,6 +7,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const axios = require('axios');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // FFmpeg yapılandırması - alternatif yaklaşım
 const ffmpegPath = path.join(__dirname, "ffmpeg.exe");
@@ -118,20 +119,20 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
     const audioPath = path.join(audioDir, audioFilename);
     
     // İşleme başladığına dair bilgi gönder
-    io.emit('processingUpdate', { status: 'started', message: 'Video yüklendi, ses ayıklama başlıyor...' });
+    io.emit('processingUpdate', { status: 'started', message: 'Video uploaded, audio extraction begins...' });
     
     // Video'dan ses ayıklama
     await extractAudioFromVideo(videoPath, audioPath);
     
     io.emit('processingUpdate', { 
       status: 'audioExtracted', 
-      message: 'Ses ayıklandı, Whisper modeline gönderiliyor...',
+      message: 'Audio extracted, sending to Whisper model...',
       audioPath: `/audio/${audioFilename}`,
       videoPath: `/uploads/${videoFilename}`
     });
     
     res.status(200).json({ 
-      message: 'Video başarıyla yüklendi ve işleme alındı',
+      message: 'Video successfully uploaded and processed',
       videoId: path.basename(videoFilename, path.extname(videoFilename)),
       videoPath: `/uploads/${videoFilename}`,
       audioPath: `/audio/${audioFilename}`
@@ -158,7 +159,7 @@ app.post('/api/process', async (req, res) => {
       return res.status(404).json({ error: 'Ses dosyası bulunamadı' });
     }
     
-    io.emit('processingUpdate', { status: 'modelProcessing', message: 'Model işleme başlıyor...' });
+    io.emit('processingUpdate', { status: 'modelProcessing', message: 'Model processing begins...' });
     
     try {
       // Debug için log ekleyelim
@@ -288,6 +289,54 @@ app.get('/api/result/:jobId', async (req, res) => {
         error: `Model servise bağlanılamadı: ${error.message}`
       });
     }
+  }
+});
+
+// AI Chat route
+app.post('/api/ai-chat', async (req, res) => {
+  try {
+    const { message, history = [] } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: 'Mesaj içeriği gereklidir' });
+    }
+
+    // Use a publicly available Gemini API key for demo purposes
+    // In production, this should be an environment variable
+    const genAI = new GoogleGenerativeAI("AIzaSyAUr7jCxI7JUrCZH3JFRYRYAvicVgutdWQ");
+    
+    // For demonstration purposes, using a free tier model
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    // Format chat history for the API
+    const formattedHistory = history.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }]
+    }));
+    
+    // Start a chat session
+    const chat = model.startChat({
+      history: formattedHistory,
+      generationConfig: {
+        maxOutputTokens: 1000,
+      },
+    });
+    
+    // Send the message to the model
+    const result = await chat.sendMessage(message);
+    const response = result.response;
+    
+    res.status(200).json({ 
+      response: response.text(),
+      model: 'gemini-1.0-pro'
+    });
+    
+  } catch (error) {
+    console.error('AI Chat Hatası:', error);
+    res.status(500).json({ 
+      error: 'AI servisine bağlanırken bir hata oluştu', 
+      details: error.message 
+    });
   }
 });
 

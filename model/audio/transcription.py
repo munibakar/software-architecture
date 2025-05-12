@@ -4,6 +4,7 @@
 import os
 import torch
 import logging
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -12,15 +13,6 @@ def transcribe_audio(audio_path, job_id):
         logger.info(f"[{job_id}] Transkripsiyon başlatılıyor: {audio_path}")
         print(f"[{job_id}] Transkripsiyon için ses dosyası: {audio_path}")
         print(f"[{job_id}] Dosya var mı: {os.path.exists(audio_path)}")
-        
-        # Whisper modelini import et
-        try:
-            print(f"[{job_id}] Transformers modülünü import ediliyor...")
-            from transformers import pipeline
-            print(f"[{job_id}] Transformers import edildi")
-        except Exception as e:
-            print(f"[{job_id}] Transformers import hatası: {str(e)}")
-            raise Exception(f"Transformers import hatası: {str(e)}")
         
         # GPU durumunu kontrol et
         try:
@@ -35,12 +27,27 @@ def transcribe_audio(audio_path, job_id):
         # Modeli yükle
         print(f"[{job_id}] Whisper modeli yükleniyor...")
         try:
-            device = 0 if torch.cuda.is_available() else -1
+            device = "cuda:0" if torch.cuda.is_available() else "cpu"
             print(f"[{job_id}] Cihaz: {device}")
             
+            model_id = "openai/whisper-large-v3"
+            
+            # Model ve processor'ı yükle
+            model = AutoModelForSpeechSeq2Seq.from_pretrained(
+                model_id, 
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                low_cpu_mem_usage=True,
+                use_safetensors=True
+            )
+            model.to(device)
+            
+            processor = AutoProcessor.from_pretrained(model_id)
+            
             transcriber = pipeline(
-                "automatic-speech-recognition", 
-                model="openai/whisper-large-v3",
+                "automatic-speech-recognition",
+                model=model,
+                tokenizer=processor.tokenizer,
+                feature_extractor=processor.feature_extractor,
                 chunk_length_s=30,
                 device=device
             )
@@ -57,7 +64,6 @@ def transcribe_audio(audio_path, job_id):
             result = transcriber(
                 audio_path,
                 return_timestamps=True,
-                generate_kwargs={"language": "tr"}
             )
             print(f"[{job_id}] Transkripsiyon başarıyla tamamlandı")
             

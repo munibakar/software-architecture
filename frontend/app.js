@@ -442,8 +442,25 @@ function processFullTranscription(text) {
 
 // Analiz gösterme
 function displayAnalysis(analysis) {
+    // Get chat history if available
+    let chatContext = '';
+    if (window.chatComponent) {
+        const chatHistory = window.chatComponent.getChatHistory();
+        if (chatHistory.length > 0) {
+            chatContext = '\n\nSohbet Geçmişinden Önemli Noktalar:\n';
+            chatHistory.forEach(msg => {
+                if (msg.role === 'user') {
+                    chatContext += `- Kullanıcı: ${msg.content}\n`;
+                } else {
+                    chatContext += `- AI: ${msg.content}\n`;
+                }
+            });
+        }
+    }
+
     // Özet
-    document.getElementById('meetingSummary').textContent = analysis.summary;
+    const summaryElement = document.getElementById('meetingSummary');
+    summaryElement.textContent = analysis.summary + chatContext;
     
     // Katılım grafiği
     createParticipationChart(analysis.participation);
